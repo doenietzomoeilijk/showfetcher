@@ -1,61 +1,90 @@
 package main
 
 import (
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"log"
 	"net/url"
+	"os/exec"
 	"regexp"
 	"strconv"
 	"strings"
 	"time"
 
-	"os/exec"
-
+	_ "github.com/mattn/go-sqlite3" // Use sqlite3
 	"github.com/mmcdole/gofeed"
 )
 
-const showPattern = "(.+) ([0-9]+)x([0-9]+) (.+)"
+const showPattern = "(.+) ([0-9]+)x([0-9]+) ?(.*)"
 const transPattern = "^\\s*(?P<id>\\d+)  +(?P<done>\\d+)%  +(?P<have>[0-9.]+ (kB|MB|GB|TB))  +(?P<eta>.*?)  +(?P<up>[0-9.]+)  +(?P<down>[0-9.]+)  +(?P<ratio>[0-9.]+)  +(?P<status>.*?)  +(?P<name>.*)$"
 
 var (
+	db      *sql.DB
 	showRe  *regexp.Regexp
 	transRe *regexp.Regexp
-	config  Configuration
+	config  *Configuration
 )
 
-func main() {
-	showRe = regexp.MustCompile(showPattern)
-	transRe = regexp.MustCompile(transPattern)
+// Create our database if it doesn't exist, make sure it's open.
+func setupDb() {
+	var err error
 
-	config, err := loadConfig("config.json")
+	db, err = sql.Open("sqlite3", "shows.db")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	_, err = db.Exec(`CREATE TABLE IF NOT EXISTS shows (
+        guid VARCHAR(50) NOT NULL PRIMARY KEY,
+        show VARCHAR(50) NOT NULL,
+        episode VARCHAR(5) NOT NULL,
+        published DATETIME NULL,
+        status VARCHAR(10) NOT NULL DEFAULT 'new',
+        filename VARCHAR(100) NOT NULL
+    )`)
+	_, err = db.Exec(`CREATE INDEX IF NOT EXISTS st ON shows(status)`)
+	_, err = db.Exec(`CREATE INDEX IF NOT EXISTS sh ON shows(show)`)
+	_, err = db.Exec(`CREATE INDEX IF NOT EXISTS fn ON shows(filename)`)
+}
+
+// Go go go.
+func main() {
+	config = &Configuration{}
+	err := config.load("config.json")
 	if err != nil {
 		panic("Config can't be read")
 	}
 
-	log.Printf("%#v\n", config)
+	showRe = regexp.MustCompile(showPattern)
+	transRe = regexp.MustCompile(transPattern)
+	setupDb()
 
-	fp := gofeed.NewParser()
-	feed, _ := fp.ParseURL(config.FeedURL)
+	parseFeeds()
+	transmatch()
+}
 
-	log.Println(feed.Title)
+func parseFeeds() {
+	feed, _ := gofeed.NewParser().ParseURL(config.FeedURL)
 
 	for _, item := range feed.Items {
-		epi := Episode{}
-		epi.fill(item)
-
-		// log.Printf("Item: %#v\n", epi)
 		show, ok := config.findShow(item.Title)
+
 		if !ok {
+			log.Println("I cannot haz show")
 			continue
 		}
-		log.Printf("  Entry '%s' matches show '%s'\n", item.Title, show.Title)
-		// log.Println("  ", epi.Published.Format(time.RFC3339))
-		log.Println("")
-	}
+		log.Printf("Entry '%s' matches show '%s'\n", item.Title, show.Title)
 
-	transmatch(config.Transmission)
+		epi := Episode{}
+		epi.fill(&show, item)
+		ok = epi.store()
+		if !ok {
+			log.Println("Could not store show.")
+			continue
+		}
+	}
 }
 
 // Configuration holds the entire JSON config
@@ -73,17 +102,34 @@ type Show struct {
 	Location     string `json:"location"`
 }
 
+// Load our config
+func (c *Configuration) load(filename string) error {
+	bytes, err := ioutil.ReadFile(filename)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(bytes, &c)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// Find a show by title.
 func (c *Configuration) findShow(str string) (s Show, ok bool) {
+	log.Println("Trying to find show", str, c)
 	for _, show := range c.Shows {
+		log.Println("Trying show", show)
+
 		matches := showRe.FindStringSubmatch(str)
 		if len(matches) < 1 {
+			log.Println("No matches")
 			continue
 		}
-
 		name := matches[1]
-		// season := matches[2]
-		// episode := matches[3]
-		// title := matches[4]
+		log.Println("Trying name", name, "against regex", show.SearchString)
 
 		if m, _ := regexp.Match(show.SearchString, []byte(name)); m {
 			return show, true
@@ -93,23 +139,9 @@ func (c *Configuration) findShow(str string) (s Show, ok bool) {
 	return Show{}, false
 }
 
-func loadConfig(filename string) (Configuration, error) {
-	bytes, err := ioutil.ReadFile(filename)
-	if err != nil {
-		return Configuration{}, err
-	}
-
-	var c Configuration
-	err = json.Unmarshal(bytes, &c)
-	if err != nil {
-		return Configuration{}, err
-	}
-
-	return c, nil
-}
-
 // Episode holds a singular episode from the feed.
 type Episode struct {
+	Show      *Show
 	Name      string
 	Season    int
 	Episode   int
@@ -120,8 +152,13 @@ type Episode struct {
 	Status    string
 }
 
-func (e *Episode) fill(item *gofeed.Item) {
+func (e *Episode) fill(show *Show, item *gofeed.Item) {
 	matches := showRe.FindStringSubmatch(item.Title)
+	if len(matches) < 1 {
+		log.Println("Didn't find anything!", matches, item.Title)
+		return
+	}
+	e.Show = show
 	e.Name = matches[1]
 	e.Season, _ = strconv.Atoi(matches[2])
 	e.Episode, _ = strconv.Atoi(matches[3])
@@ -132,9 +169,60 @@ func (e *Episode) fill(item *gofeed.Item) {
 	e.Published = item.PublishedParsed
 }
 
+func (e *Episode) store() bool {
+	_, err := db.Exec(
+		`INSERT OR IGNORE INTO shows
+		(guid, show, episode, published, filename)
+		VALUES (?, ?, ?, ?, ?)`,
+		e.GUID,
+		e.Show.Title,
+		fmt.Sprintf("%dx%d", e.Season, e.Episode),
+		e.Published,
+		e.File)
+
+	if err == nil {
+		log.Println("Stored show", e.Show.Title)
+		return true
+	}
+
+	log.Panicln("Error while inserting show:", err)
+	return false
+}
+
 type TransmissionStatus struct {
 	Lines []TransmissionLine
 }
+
+func (t *TransmissionStatus) fetch() {
+	output, _ := exec.Command("/usr/bin/transmission-remote", config.Transmission, "--list").Output()
+	lines := strings.Split(string(output), "\n")[1:]
+
+	for _, line := range lines {
+		fields := transRe.FindStringSubmatch(line)
+		if len(fields) < 1 {
+			continue
+		}
+		ma := map[string]string{}
+		for i, fld := range transRe.SubexpNames() {
+			if fld == "" {
+				continue
+			}
+			ma[fld] = fields[i]
+		}
+		id, _ := strconv.Atoi(ma["id"])
+		tl := TransmissionLine{
+			ID:     id,
+			Done:   ma["done"],
+			ETA:    ma["eta"],
+			Name:   ma["name"],
+			Status: ma["status"],
+		}
+
+		t.Lines = append(t.Lines, tl)
+	}
+}
+
+// TransmissionLine holds a single line from the Transmission process.
 type TransmissionLine struct {
 	ID     int
 	Done   string
@@ -143,30 +231,18 @@ type TransmissionLine struct {
 	Status string
 }
 
-func transmatch(s string) {
-	output, _ := exec.Command("/usr/bin/transmission-remote", s, "--list").Output()
-	lines := strings.Split(string(output), "\n")[1:]
+// Match against regex to find SxEx part
+func (tl *TransmissionLine) Episode() string {
+	return ""
+}
 
-	m2 := transRe.FindStringSubmatch(lines[0])
-	ma := map[string]string{}
+func transmatch() {
+	t := &TransmissionStatus{}
+	t.fetch()
 
-	for i, fld := range transRe.SubexpNames() {
-		if fld == "" {
-			continue
+	for _, tl := range t.Lines {
+		if tl.Status == "Seeding" || tl.Status == "Idle" {
+
 		}
-
-		ma[fld] = m2[i]
 	}
-
-	id, _ := strconv.Atoi(ma["id"])
-	tl := TransmissionLine{
-		ID:     id,
-		Done:   ma["done"],
-		ETA:    ma["eta"],
-		Name:   ma["name"],
-		Status: ma["status"],
-	}
-	fmt.Printf("%#v\n", tl)
-	return
-
 }

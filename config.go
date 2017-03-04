@@ -19,10 +19,10 @@ var (
 
 // Configuration holds the entire JSON config
 type Configuration struct {
-	FeedURL         string `json:"feed_url"`
-	BaseTorrentPath string `json:"base_torrent_path"`
-	Transmission    string `json:"transmission_rpc_url"`
-	Shows           []Show `json:"shows"`
+	FeedURL       string `json:"feed_url"`
+	IncompleteDir string `json:"incomplete_dir"`
+	Transmission  string `json:"transmission_rpc_url"`
+	Shows         []Show `json:"shows"`
 }
 
 // Show holds one singular show entry
@@ -34,9 +34,7 @@ type Show struct {
 
 // Find a show by title.
 func (c *Configuration) findShow(str string) (s Show, ok bool) {
-	log.Println("Trying to find show", str, c)
 	for _, show := range c.Shows {
-		log.Println("Trying show", show)
 
 		matches := ShowRe.FindStringSubmatch(str)
 		if len(matches) < 1 {
@@ -44,13 +42,23 @@ func (c *Configuration) findShow(str string) (s Show, ok bool) {
 			continue
 		}
 		name := matches[1]
-		log.Println("Trying name", name, "against regex", show.SearchString)
+		log.Println("Trying searchstring=", show.SearchString, "against match name=", name)
 
 		if m, _ := regexp.Match(show.SearchString, []byte(name)); m {
 			return show, true
 		}
 	}
 
+	return Show{}, false
+}
+
+func (c *Configuration) showByTitle(str string) (s Show, ok bool) {
+	log.Println("Finding show by title", str)
+	for _, show := range c.Shows {
+		if show.Title == str {
+			return show, true
+		}
+	}
 	return Show{}, false
 }
 
@@ -80,7 +88,7 @@ func SetupDb() (db *sql.DB, err error) {
 	}
 
 	_, err = db.Exec(`CREATE TABLE IF NOT EXISTS shows (
-        hash VARCHAR(50) NOT NULL PRIMARY KEY,
+        hash VARCHAR(50) NOT NULL COLLATE NOCASE PRIMARY KEY,
         show VARCHAR(50) NOT NULL,
         episode VARCHAR(5) NOT NULL,
         published DATETIME NULL,

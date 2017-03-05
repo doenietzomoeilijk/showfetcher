@@ -52,7 +52,7 @@ func Close() {
 
 // MarkDone marks a given set of Episodes as 'done' in the database.
 // These Episodes should at least have their Hash set.
-func MarkDone(episodes []episode.Episode) {
+func MarkDone(episodes []*episode.Episode) {
 	for _, ep := range episodes {
 		_, err := config.DB.Exec("UPDATE shows SET status = 'done' WHERE hash = ?", ep.Hash)
 		if err != nil {
@@ -62,7 +62,7 @@ func MarkDone(episodes []episode.Episode) {
 }
 
 // Get episodes that have status 'new'.
-func Get() (episodes []episode.Episode) {
+func Get() (episodes []*episode.Episode) {
 	rows, err := config.DB.Query("SELECT magnet, show, episode FROM shows WHERE status == 'new'")
 	defer rows.Close()
 	if err != nil {
@@ -75,8 +75,30 @@ func Get() (episodes []episode.Episode) {
 		var s string
 		rows.Scan(&ep.Magnet, &s, &ep.Episode)
 		ep.Show = episode.Shows[s]
-		episodes = append(episodes, ep)
+		episodes = append(episodes, &ep)
 	}
 
 	return
+}
+
+// Store a set of episodes.
+func Store(eps []*episode.Episode) {
+	for _, ep := range eps {
+		_, err := config.DB.Exec(
+			`INSERT OR IGNORE INTO shows
+		        (hash, show, episode, published, filename, magnet)
+		        VALUES (?, ?, ?, ?, ?, ?)`,
+			ep.Hash,
+			ep.Show.Title,
+			ep.Episode,
+			ep.Published,
+			ep.File,
+			ep.Magnet,
+		)
+		if err == nil {
+			log.Println("Stored episode", ep.Show.Title, ep.Episode)
+		} else {
+			log.Println("Could not store show:", err)
+		}
+	}
 }

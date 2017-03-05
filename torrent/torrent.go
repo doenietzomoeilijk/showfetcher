@@ -27,7 +27,7 @@ func Setup(address string, tmpdir string) (err error) {
 }
 
 // Cleanup cleans up torrents that are done.
-func Cleanup() (e []episode.Episode) {
+func Cleanup() (e []*episode.Episode) {
 	tmap, err := config.Torrent.GetTorrentMap()
 	if err != nil {
 		log.Fatalln("Error while fetching torrents from Transmission:", err)
@@ -42,7 +42,7 @@ func Cleanup() (e []episode.Episode) {
 			log.Println("This torrent is done")
 			tor.Stop()
 			done = append(done, tor)
-			e = append(e, episode.Episode{Hash: hash, Status: "done"})
+			e = append(e, &episode.Episode{Hash: hash, Status: "done"})
 		}
 	}
 
@@ -55,7 +55,7 @@ func Cleanup() (e []episode.Episode) {
 }
 
 // Add new episodes to our torrent client.
-func Add(eps []episode.Episode) {
+func Add(eps []*episode.Episode) {
 	for _, ep := range eps {
 		config.Torrent.Session.Set(transmission.SetSessionArgs{
 			DownloadDir: ep.Show.Location,

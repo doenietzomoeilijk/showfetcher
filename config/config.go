@@ -13,9 +13,16 @@ import (
 const filename string = "config.json"
 
 var (
-	Config  *Configuration
+	// Config holds our struct
+	Config *Configuration
+
+	// Torrent holds a Transmission Client
 	Torrent *transmission.Client
-	DB      *sql.DB
+
+	// DB holds what you'd think it holds
+	DB *sql.DB
+
+	// Showmap is a convenience mapping of hash=>Show
 	Showmap map[string]*episode.Show
 )
 
@@ -26,42 +33,6 @@ type Configuration struct {
 	Transmission  string         `json:"transmission_rpc_url"`
 	Shows         []episode.Show `json:"shows"`
 }
-
-func init() {
-	Showmap = make(map[string]*episode.Show)
-}
-
-// Find a show by title.
-/*
-func (c *Configuration) findShow(str string) (s episode.Show, ok bool) {
-	for _, show := range c.Shows {
-
-		matches := ShowRe.FindStringSubmatch(str)
-		if len(matches) < 1 {
-			log.Println("No matches")
-			continue
-		}
-		name := matches[1]
-		log.Println("Trying searchstring=", show.SearchString, "against match name=", name)
-
-		if m, _ := regexp.Match(show.SearchString, []byte(name)); m {
-			return show, true
-		}
-	}
-
-	return episode.Show{}, false
-}
-
-func (c *Configuration) showByTitle(str string) (s episode.Show, ok bool) {
-	log.Println("Finding show by title", str)
-	for _, show := range c.Shows {
-		if show.Title == str {
-			return show, true
-		}
-	}
-	return episode.Show{}, false
-}
-*/
 
 // Load our config.
 func Load() {
@@ -76,7 +47,7 @@ func Load() {
 		panic(err)
 	}
 
-	// Config.Showmap = episode.Showmap{}
+	Showmap = make(map[string]*episode.Show)
 	for _, show := range Config.Shows {
 		Showmap[show.Title] = &show
 	}

@@ -17,7 +17,7 @@ func main() {
 	config.Load()
 
 	storage.Setup()
-	// defer storage.Close()
+	defer storage.Close()
 
 	torrent.Setup(config.Config.Transmission, config.Config.IncompleteDir)
 
@@ -26,8 +26,8 @@ func main() {
 	storage.MarkDone(episodes)
 
 	// Fill the db with show info, based on the RSS feed.
-	feed.Parse(config.Config.FeedURL)
-	return
+	episodes = feed.Parse(config.Config.FeedURL)
+	storage.Store(episodes)
 
 	// Now fetch anything with status new and add it to the tracker
 	episodes = storage.Get()

@@ -1,10 +1,10 @@
-package showfetcher
+package episode
 
 import (
 	"time"
 )
 
-// Episodes holds all the episodes from the database.
+// Episodes holds a group of episodes, mapped to the hash.
 type Episodes map[string]*Episode
 
 // Episode that works for the feed as wel as for the database.
@@ -15,4 +15,5 @@ type Episode struct {
 	Published *time.Time
 	Status    string
 	File      string
+	Magnet    string // Magnet link
 }

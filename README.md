@@ -1,5 +1,5 @@
 # showfetcher
-A glue layer between showrss.info and Transmission, keeping track of shows and downloads.
+A glue layer between [showrss.info](http://showrss.info) and [Transmission](https://transmissionbt.com/), keeping track of shows and downloads.
 
 ## Usage
 
@@ -19,4 +19,12 @@ Make sure there's a `config.json` file present, looking like this:
     ]
 }
 ```
+
+For the feed URL, make sure you enable namespaces and clean names, quality and repacks is up to you.
+
 That's pretty much it!
+
+```bash
+go build .
+./showfetcher
+```

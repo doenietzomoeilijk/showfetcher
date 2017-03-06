@@ -15,12 +15,18 @@ Make sure there's a `config.json` file present, looking like this:
             "title": "A Series, Matching the ShowRSS Series Name",
             "search_string": "SearchString is not used at this moment",    
             "location": "/path/to/complete/torrents/for/this/series/"
+        },
+        {
+            ...
         }
     ]
 }
 ```
 
-For the feed URL, make sure you enable namespaces and clean names, quality and repacks is up to you.
+For the feed URL, make sure you enable namespaces and clean names, quality and
+repacks is up to you. For now, the show name as given by ShowRSS should match
+the `title` field in your JSON file; eventually I might get around to doing it
+through `search_string` to allow other sources as well.
 
 That's pretty much it!
 

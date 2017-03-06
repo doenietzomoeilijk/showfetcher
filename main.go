@@ -13,7 +13,6 @@ import (
 func main() {
 	log.Println("Getting config, setting up storage and Transmission client...")
 	conf := config.Load()
-	storage.Setup()
 	defer storage.Close()
 	torrent.Setup(
 		conf.Transmission,
@@ -47,7 +46,7 @@ func main() {
 	}
 
 	log.Printf(
-		"Done! %d were done, %d found in feed, %d were new, %d currently being fetched.\n",
+		"Done! %d done, %d found in feed, %d new, %d currently being fetched.\n",
 		doneEps,
 		feedEps,
 		newEps,

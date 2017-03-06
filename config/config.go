@@ -1,3 +1,4 @@
+// Config loads our config.json file.
 package config
 
 import (
@@ -31,9 +32,9 @@ func Load() Configuration {
 		panic(err)
 	}
 
-	episode.Shows = make(map[string]*episode.Show)
+	episode.Shows = make(map[string]episode.Show)
 	for _, show := range conf.Shows {
-		episode.Shows[show.Title] = &show
+		episode.Shows[show.Title] = show
 	}
 
 	return conf

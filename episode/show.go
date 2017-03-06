@@ -1,10 +1,10 @@
 package episode
 
-// Shows holds the externally available Showmap
-var Shows Showmap
+// Shows holds the externally available showmap
+var Shows showmap
 
 // Showmap holds all our shows, mapped to the show title.
-type Showmap map[string]*Show
+type showmap map[string]Show
 
 // Show holds one singular show entry.
 type Show struct {

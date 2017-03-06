@@ -1,3 +1,4 @@
+// Episode holds the structs and maps for shows and episodes.
 package episode
 
 import (
@@ -7,13 +8,13 @@ import (
 // Episodes holds a group of episodes, mapped to the hash.
 type Episodes map[string]*Episode
 
-// Episode that works for the feed as wel as for the database.
+// Episode holds a singular episode (linked with the show).
 type Episode struct {
-	Hash      string // xt=urn:btih:<HASH>
-	Show      *Show
-	Episode   string // 2x10
+	Hash      string
+	Show      Show
+	Episode   string // in 2x10 format
 	Published *time.Time
-	Status    string
-	File      string
-	Magnet    string // Magnet link
+	Status    string // new, busy or done
+	File      string // file name, with spaces switched for dots
+	Magnet    string // magnet link
 }

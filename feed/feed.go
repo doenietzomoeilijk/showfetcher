@@ -1,6 +1,8 @@
+// Feed handles the fetching and parsing of our showrss.info feed.
 package feed
 
 import (
+    "log"
 	"regexp"
 	"strings"
 
@@ -8,6 +10,7 @@ import (
 	"github.com/mmcdole/gofeed"
 )
 
+// This might be moved to config later.
 const pt = "(.+) ([0-9]+x[0-9]+) ?(.*)"
 
 var re *regexp.Regexp
@@ -23,7 +26,11 @@ func Parse(url string) (eps []*episode.Episode) {
 		tv := item.Extensions["tv"]
 		showname := tv["show_name"][0].Value
 		hash := strings.ToLower(tv["info_hash"][0].Value)
-		show := episode.Shows[showname]
+		show, ok := episode.Shows[showname]
+        if !ok {
+            log.Println("I don't have that show: ", showname)
+            continue
+        }
 		matches := re.FindStringSubmatch(item.Title)
 
 		eps = append(eps, &episode.Episode{

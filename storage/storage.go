@@ -1,3 +1,4 @@
+// Storage keeps our database up to date.
 package storage
 
 import (
@@ -11,12 +12,11 @@ import (
 var db *sql.DB
 
 func init() {
-	// dbname := "shows.db"
-	Setup()
+	setup()
 }
 
 // Setup our database; make sure it exists and open it.
-func Setup() (err error) {
+func setup() (err error) {
 	db, err = sql.Open("sqlite3", "shows.db")
 
 	if err != nil {

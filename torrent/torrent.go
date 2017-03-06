@@ -1,3 +1,5 @@
+// Torrent talks to our Transmission server.
+// Torrent talks to our Transmission RPC daemon.
 package torrent
 
 import (

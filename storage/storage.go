@@ -4,20 +4,26 @@ import (
 	"database/sql"
 	"log"
 
-	"github.com/doenietzomoeilijk/showfetcher/config"
 	"github.com/doenietzomoeilijk/showfetcher/episode"
 	_ "github.com/mattn/go-sqlite3" // Use sqlite3
 )
 
+var db *sql.DB
+
+func init() {
+	// dbname := "shows.db"
+	Setup()
+}
+
 // Setup our database; make sure it exists and open it.
 func Setup() (err error) {
-	config.DB, err = sql.Open("sqlite3", "shows.db")
+	db, err = sql.Open("sqlite3", "shows.db")
 
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	_, err = config.DB.Exec(`CREATE TABLE IF NOT EXISTS shows (
+	_, err = db.Exec(`CREATE TABLE IF NOT EXISTS shows (
         hash VARCHAR(50) NOT NULL COLLATE NOCASE PRIMARY KEY,
         show VARCHAR(50) NOT NULL,
         episode VARCHAR(5) NOT NULL,
@@ -29,15 +35,15 @@ func Setup() (err error) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	_, err = config.DB.Exec(`CREATE INDEX IF NOT EXISTS st ON shows(status)`)
+	_, err = db.Exec(`CREATE INDEX IF NOT EXISTS st ON shows(status)`)
 	if err != nil {
 		log.Fatal(err)
 	}
-	_, err = config.DB.Exec(`CREATE INDEX IF NOT EXISTS sh ON shows(show)`)
+	_, err = db.Exec(`CREATE INDEX IF NOT EXISTS sh ON shows(show)`)
 	if err != nil {
 		log.Fatal(err)
 	}
-	_, err = config.DB.Exec(`CREATE INDEX IF NOT EXISTS fn ON shows(filename)`)
+	_, err = db.Exec(`CREATE INDEX IF NOT EXISTS fn ON shows(filename)`)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -47,14 +53,14 @@ func Setup() (err error) {
 
 // Close wraps around the database's closer.
 func Close() {
-	config.DB.Close()
+	db.Close()
 }
 
 // MarkDone marks a given set of Episodes as 'done' in the database.
 // These Episodes should at least have their Hash set.
 func MarkDone(episodes []*episode.Episode) {
 	for _, ep := range episodes {
-		_, err := config.DB.Exec("UPDATE shows SET status = 'done' WHERE hash = ?", ep.Hash)
+		_, err := db.Exec("UPDATE shows SET status = 'done' WHERE hash = ?", ep.Hash)
 		if err != nil {
 			log.Fatalln("DB error:", err)
 		}
@@ -63,7 +69,7 @@ func MarkDone(episodes []*episode.Episode) {
 
 // Get episodes that have status 'new'.
 func Get() (episodes []*episode.Episode) {
-	rows, err := config.DB.Query("SELECT magnet, show, episode FROM shows WHERE status == 'new'")
+	rows, err := db.Query("SELECT magnet, show, episode FROM shows WHERE status == 'new'")
 	defer rows.Close()
 	if err != nil {
 		log.Fatalln("Error fetching data from db:", err)
@@ -84,7 +90,7 @@ func Get() (episodes []*episode.Episode) {
 // Store a set of episodes.
 func Store(eps []*episode.Episode) {
 	for _, ep := range eps {
-		_, err := config.DB.Exec(
+		_, err := db.Exec(
 			`INSERT OR IGNORE INTO shows
 		        (hash, show, episode, published, filename, magnet)
 		        VALUES (?, ?, ?, ?, ?, ?)`,
@@ -95,9 +101,7 @@ func Store(eps []*episode.Episode) {
 			ep.File,
 			ep.Magnet,
 		)
-		if err == nil {
-			log.Println("Stored episode", ep.Show.Title, ep.Episode)
-		} else {
+		if err != nil {
 			log.Println("Could not store show:", err)
 		}
 	}

@@ -34,8 +34,8 @@ func Parse(url string) (eps []*episode.Episode) {
 		}
 		matches := re.FindStringSubmatch(item.Title)
 		if len(matches) < 2 {
-			log.Println("This item doesn't seem to have an episode...", matches)
-			matches[2] = item.PublishedParsed.Format("%y%m%d")
+			log.Println("This item doesn't match our format...")
+			continue
 		}
 
 		eps = append(eps, &episode.Episode{

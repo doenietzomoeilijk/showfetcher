@@ -2,7 +2,7 @@
 package feed
 
 import (
-    "log"
+	"log"
 	"regexp"
 	"strings"
 
@@ -23,22 +23,28 @@ func init() {
 func Parse(url string) (eps []*episode.Episode) {
 	feed, _ := gofeed.NewParser().ParseURL(url)
 	for _, item := range feed.Items {
+		log.Println("Feed item:", item.Title)
 		tv := item.Extensions["tv"]
 		showname := tv["show_name"][0].Value
 		hash := strings.ToLower(tv["info_hash"][0].Value)
 		show, ok := episode.Shows[showname]
-        if !ok {
-            log.Println("I don't have that show: ", showname)
-            continue
-        }
+		if !ok {
+			log.Println("I don't have that show: ", showname)
+			continue
+		}
 		matches := re.FindStringSubmatch(item.Title)
+		if len(matches) < 2 {
+			log.Println("This item doesn't seem to have an episode...", matches)
+			matches[2] = item.PublishedParsed.Format("%y%m%d")
+		}
 
 		eps = append(eps, &episode.Episode{
-			Show:    show,
-			Hash:    hash,
-			Magnet:  item.Link,
-			Episode: matches[2],
-			File:    strings.Replace(tv["raw_title"][0].Value, " ", ".", -1),
+			Show:      show,
+			Hash:      hash,
+			Magnet:    item.Link,
+			Episode:   matches[2],
+			File:      strings.Replace(tv["raw_title"][0].Value, " ", ".", -1),
+			Published: item.PublishedParsed,
 		})
 	}
 

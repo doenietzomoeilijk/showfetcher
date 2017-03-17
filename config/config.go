@@ -17,6 +17,7 @@ type Configuration struct {
 	IncompleteDir string         `json:"incomplete_dir"`
 	Transmission  string         `json:"transmission_rpc_url"`
 	Shows         []episode.Show `json:"shows"`
+	Logfile       string         `json:"logfile"`
 }
 
 // Load our config.

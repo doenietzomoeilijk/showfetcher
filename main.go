@@ -3,6 +3,7 @@ package main
 
 import (
 	"log"
+	"os"
 
 	"github.com/doenietzomoeilijk/showfetcher/config"
 	"github.com/doenietzomoeilijk/showfetcher/feed"
@@ -11,8 +12,16 @@ import (
 )
 
 func main() {
-	log.Println("Getting config, setting up storage and Transmission client...")
 	conf := config.Load()
+
+	f, err := os.OpenFile(conf.Logfile, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
+	if err != nil {
+		log.Fatalf("error opening file: %v", err)
+	}
+	defer f.Close()
+	log.SetOutput(f)
+
+	log.Println("Setting up storage and Transmission client...")
 	defer storage.Close()
 	torrent.Setup(
 		conf.Transmission,

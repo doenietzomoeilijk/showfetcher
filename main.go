@@ -36,7 +36,6 @@ func main() {
 	if err != nil {
 		log.Fatalln("Couldn't connect to Telegram:", err)
 	}
-	spam("managed to set up telegram!")
 
 	log.Println("Setting up storage and Transmission client...")
 	defer storage.Close()
@@ -54,7 +53,7 @@ func main() {
 	}
 	doneEpCount := len(episodes)
 	if doneEpCount > 0 {
-		spam(fmt.Sprintf("Klaar met downloaden: %s", formatEpList(episodes)))
+		spam(fmt.Sprintf("Klaar met downloaden van %d episodes", doneEpCount))
 	}
 	storage.MarkDone(episodes)
 

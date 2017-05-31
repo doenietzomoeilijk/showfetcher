@@ -100,7 +100,7 @@ func spam(msg string) {
 	for _, r := range rcp {
 		msg := tgbotapi.NewMessageToChannel(r, msg)
 		_, err := bot.Send(msg)
-		if err {
+		if err != nil {
 			log.Println("Could not send Telegram message:", err)
 		}
 	}

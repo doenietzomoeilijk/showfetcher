@@ -4,15 +4,25 @@ package main
 import (
 	"log"
 	"os"
+	"fmt"
+	"strings"
 
 	"github.com/doenietzomoeilijk/showfetcher/config"
 	"github.com/doenietzomoeilijk/showfetcher/feed"
 	"github.com/doenietzomoeilijk/showfetcher/storage"
 	"github.com/doenietzomoeilijk/showfetcher/torrent"
+	"github.com/doenietzomoeilijk/showfetcher/episode"
+	"gopkg.in/telegram-bot-api.v4"
+)
+
+var (
+	bot *tgbotapi.BotAPI
+	rcp []string
 )
 
 func main() {
 	conf := config.Load()
+	rcp = conf.BotRecipients
 
 	f, err := os.OpenFile(conf.Logfile, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
 	if err != nil {
@@ -20,6 +30,13 @@ func main() {
 	}
 	defer f.Close()
 	log.SetOutput(f)
+
+	log.Println("Setting up Telegram bot...")
+	bot, err = tgbotapi.NewBotAPI(conf.BotToken)
+	if err != nil {
+		log.Fatalln("Couldn't connect to Telegram:", err)
+	}
+	spam("managed to set up telegram!")
 
 	log.Println("Setting up storage and Transmission client...")
 	defer storage.Close()
@@ -35,21 +52,27 @@ func main() {
 		log.Fatalln("Couldn't run torrent cleanup:", err)
 		return
 	}
-	doneEps := len(episodes)
+	doneEpCount := len(episodes)
+	if doneEpCount > 0 {
+		spam(fmt.Sprintf("Klaar met downloaden: %s", formatEpList(episodes)))
+	}
 	storage.MarkDone(episodes)
 
 	log.Println("Fill the database with show info, based on the RSS feed...")
 	episodes = feed.Parse(conf.FeedURL)
-	feedEps := len(episodes)
+	feedEpCount := len(episodes)
 	storage.Store(episodes)
 
 	log.Println("Figuring out new episodes and adding them to the tracker...")
 	episodes = storage.Get()
-	newEps := len(episodes)
+	newEpCount := len(episodes)
 	torrent.Add(episodes)
+	if newEpCount > 0 {
+		spam(fmt.Sprintf("Toegevoegd aan downloads: %s", formatEpList(episodes)))
+	}
 
 	ts := torrent.List()
-	torEps := len(ts)
+	fetchingEpCount := len(ts)
 
 	if err != nil {
 		log.Fatalln(err)
@@ -57,9 +80,28 @@ func main() {
 
 	log.Printf(
 		"Done! %d done, %d found in feed, %d new, %d currently being fetched.\n",
-		doneEps,
-		feedEps,
-		newEps,
-		torEps,
+		doneEpCount,
+		feedEpCount,
+		newEpCount,
+		fetchingEpCount,
 	)
+}
+
+func formatEpList(eps []*episode.Episode) string {
+	epTitles := []string{}
+	for _, ep := range eps {
+		epTitles = append(epTitles, fmt.Sprintf("%s (%s)", ep.Show.Title, ep.Episode))
+	}
+
+	return strings.Join(epTitles, ", ")
+}
+
+func spam(msg string) {
+	for _, r := range rcp {
+		msg := tgbotapi.NewMessageToChannel(r, msg)
+		_, err := bot.Send(msg)
+		if err {
+			log.Println("Could not send Telegram message:", err)
+		}
+	}
 }

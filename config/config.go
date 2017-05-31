@@ -19,6 +19,8 @@ type Configuration struct {
 	Shows         []episode.Show `json:"shows"`
 	Logfile       string         `json:"logfile"`
 	SeasonFolders bool           `json:"season_folders"`
+	BotToken      string         `json:"bot_token"`
+	BotRecipients []string       `json:"bot_recipients"`
 }
 
 // Load our config.

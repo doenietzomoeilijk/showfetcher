@@ -26,6 +26,7 @@ func main() {
 	torrent.Setup(
 		conf.Transmission,
 		conf.IncompleteDir,
+		conf.SeasonFolders,
 	)
 
 	log.Println("Find and clean the torrents we already had going...")

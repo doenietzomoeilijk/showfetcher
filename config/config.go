@@ -18,6 +18,7 @@ type Configuration struct {
 	Transmission  string         `json:"transmission_rpc_url"`
 	Shows         []episode.Show `json:"shows"`
 	Logfile       string         `json:"logfile"`
+	SeasonFolders bool           `json:"season_folders"`
 }
 
 // Load our config.

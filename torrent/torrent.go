@@ -1,4 +1,3 @@
-// Torrent talks to our Transmission server.
 // Torrent talks to our Transmission RPC daemon.
 package torrent
 
@@ -6,23 +5,28 @@ import (
 	"log"
 	"strings"
 
+	"fmt"
+
 	"github.com/doenietzomoeilijk/showfetcher/episode"
 	"github.com/odwrtw/transmission"
 )
 
 var client *transmission.Client
+var seasonFolders bool
 
 // Setup sets up a connection.
-func Setup(address string, tmpdir string) (err error) {
+func Setup(address string, tmpdir string, useSeasonFolders bool) (err error) {
 	conf := transmission.Config{Address: address}
 	client, err = transmission.New(conf)
 	client.Session.Set(transmission.SetSessionArgs{
 		IncompleteDir:        tmpdir,
 		IncompleteDirEnabled: true,
+		SeedRatioLimit:       1.0,
 	})
 	if err != nil {
 		log.Fatalln("Couldn't set up Transmission:", err)
 	}
+	seasonFolders = useSeasonFolders
 
 	return
 }
@@ -57,8 +61,13 @@ func Cleanup() (e []*episode.Episode, err error) {
 func Add(eps []*episode.Episode) {
 	for _, ep := range eps {
 		log.Println("Adding episode to Transmission:", ep)
+		location := ep.Show.Location
+		if seasonFolders {
+			epbits := strings.Split(ep.Episode, "x")
+			location = fmt.Sprintf("%s/Season %s", location, epbits[1])
+		}
 		client.Session.Set(transmission.SetSessionArgs{
-			DownloadDir: ep.Show.Location,
+			DownloadDir: location,
 		})
 
 		tor, err := client.Add(ep.Magnet)

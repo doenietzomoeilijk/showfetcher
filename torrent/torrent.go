@@ -64,7 +64,7 @@ func Add(eps []*episode.Episode) {
 		location := ep.Show.Location
 		if seasonFolders {
 			epbits := strings.Split(ep.Episode, "x")
-			location = fmt.Sprintf("%s/Season %s", location, epbits[1])
+			location = fmt.Sprintf("%s/Season %s", location, epbits[0])
 		}
 		client.Session.Set(transmission.SetSessionArgs{
 			DownloadDir: location,
